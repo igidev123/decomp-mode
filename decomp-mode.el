@@ -102,12 +102,12 @@
       (setq buffer-read-only nil)
       (erase-buffer)
       (dolist (item asm)
-        (insert (format "%s\n" (asm-line-full-instruction item))))
+        (insert (format "%4d %4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item))))
       (setq buffer-read-only t)
       (special-mode) ; Set a suitable mode for the buffer
+      (setq-local display-line-numbers nil)
       (goto-char (point-min))
       (display-buffer buffer))))
-
 
 
 (defun jump-to-asm (asm line)
