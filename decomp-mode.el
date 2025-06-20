@@ -20,6 +20,11 @@
          (or ,memo-var
              (setq ,memo-var (progn ,@body)))))))
 
+(defclass asm-line ()
+  ((src-line :initarg :src-line :accessor asm-line-src-line)
+   (address  :initarg :address  :accessor asm-line-address)
+   (base-instruction :initarg :base-instruction :accessor asm-line-base-instruction)
+   (full-instruction :initarg :full-instruction :accessor asm-line-full-instruction)))
 
 (defmemoized c-assembly-get-base-obj ()
              (concat (make-temp-file "c-asm-") ".o"))
@@ -83,9 +88,11 @@
          ((string-match "^[[:space:]]*\\([0-9a-f]+\\):[[:space:]]*\\(\\([a-z]+\\).*\\)$" line)
           ;; Instruction
           (setq result (nconc result
-                              (list (list source-ln
-                                    (string-to-number (match-string 1 line) 16)
-                                    (match-string 3 line) (match-string 2 line))))))))
+                              (list (make-instance 'asm-line
+                                     :src-line source-ln
+                                     :address (string-to-number (match-string 1 line) 16)
+                                     :base-instruction (match-string 3 line)
+                                     :full-instruction (match-string 2 line))))))))
       result)))
 
 (defun display-asm (asm)
@@ -95,7 +102,7 @@
       (setq buffer-read-only nil)
       (erase-buffer)
       (dolist (item asm)
-        (insert (format "%s\n" (nth 3 item))))
+        (insert (format "%s\n" (asm-line-full-instruction item))))
       (setq buffer-read-only t)
       (special-mode) ; Set a suitable mode for the buffer
       (goto-char (point-min))
@@ -111,7 +118,7 @@
             (catch 'found
               (dolist (item asm)
                 (setq index (1+ index))
-                (when (equal line (car item))
+                (when (equal line (asm-line-src-line item))
                   (goto-char (point-min))
                   (forward-line index)
                   (message "Index %d" index)
