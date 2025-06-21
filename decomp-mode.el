@@ -11,6 +11,11 @@
     ))
 
 
+(defvar *c-assembly-debug* nil)
+(defun debug-message (&rest body)
+  (if *c-assembly-debug*
+      (apply 'message body)))
+
 (defmacro defmemoized (name parameters &rest body)
   "Define a memoized function NAME with PARAMETERS and BODY"
   (let ((memo-var (gensym)))
@@ -26,6 +31,14 @@
    (base-instruction :initarg :base-instruction :accessor asm-line-base-instruction)
    (full-instruction :initarg :full-instruction :accessor asm-line-full-instruction)))
 
+(defun asm-compare (a b)
+  (equal (asm-line-base-instruction a) (asm-line-base-instruction b)))
+;;  (cond ((eq (asm-line-full-instruction a) (asm-line-full-instruction b))
+;;         :full-match)
+;;        ((eq (asm-line-base-instruction a) (asm-line-base-instruction b))
+;;         :base-match)
+;;        (t nil)))
+
 (defmemoized c-assembly-get-base-obj ()
              (concat (make-temp-file "c-asm-") ".o"))
 (defmemoized c-assembly-get-base-asm ()
@@ -37,7 +50,8 @@
              (concat (make-temp-file "c-asm-") ".s"))
 (defvar *src-target-file* "./target.s")
 (defvar *loaded-asm* nil)
-(defvar *asm-buffer-name* "*Assembler*")
+(defvar *base-asm-buffer-name* "*Base*")
+(defvar *target-asm-buffer-name* "*Target*")
 
 (defun c-assembly-dump-asm-file (obj-file asm-file)
   (shell-command
@@ -57,7 +71,7 @@
 
 (defun c-assembly-assemble-file (src-file obj-file)
   (shell-command
-   (format "arm-none-eabi-as -mthumb -march=armv5te %s -o %s"
+   (format "arm-none-eabi-as -march=armv5te %s -o %s"
            src-file obj-file)))
 
 (defun c-assembly-dump-asm ()
@@ -65,7 +79,7 @@
   (let ((obj-file (c-assembly-get-target-obj))
         (asm-file (c-assembly-get-target-asm)))
     (c-assembly-assemble-file *src-target-file* obj-file)
-    (c-assembly-dump-asm obj-file asm-file)))
+    (c-assembly-dump-asm-file obj-file asm-file)))
 
 
 ;; Source-line '^[^\s]*:([0-9]*)$'
@@ -84,7 +98,7 @@
           (setq source-ln (string-to-number (match-string 1 line))))
          ((string-match "^([0-9a-f]*)\s(.*):$" line)
           ;; Label
-          (message line))
+          (debug-message line))
          ((string-match "^[[:space:]]*\\([0-9a-f]+\\):[[:space:]]*\\(\\([a-z]+\\).*\\)$" line)
           ;; Instruction
           (setq result (nconc result
@@ -97,53 +111,78 @@
 
 
 (defun format-asm-line (asm)
-  (format "%4d %4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item)))
+  (format "%4d %4x:  %s"
+          (asm-line-src-line asm)
+          (asm-line-address asm)
+          (asm-line-full-instruction asm)))
 (defun format-asm-no-line (asm)
-  (format "%4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item)))
+  (format "%4x:  %s"
+          (asm-line-address asm)
+          (asm-line-full-instruction asm)))
 
-(defun display-asm (asm)
+(defun string-to-exact-length (string target-length)
+  (let ((current-length (string-width string)))
+    (cond ((> current-length target-length)
+         (truncate-string-to-width string target-length nil ?\…))
+        ((< current-length target-length)
+         (concat string (make-string (- target-length current-length) ?\s)))
+        (t string))))
+
+
+(defun format-diff-line (type left right)
+  (let* ((width (window-width))
+         (half-width (/ (- width 3) 2))
+         (left-string (string-to-exact-length (if left
+                                                  (format-asm-line left)
+                                                ">")
+                                              half-width))
+         (right-string (string-to-exact-length (if right
+                                                   (format-asm-no-line right)
+                                                 "<")
+                                               half-width)))
+    (format "%s | %s\n" left-string right-string)))
+
+
+(defun display-asm (asm-diff)
   "Display the assembly in a buffer."
-  (let ((buffer (get-buffer-create *asm-buffer-name*)))
+  (let ((buffer (get-buffer-create *target-asm-buffer-name*)))
     (with-current-buffer buffer
       (setq buffer-read-only nil)
       (erase-buffer)
-      (dolist (item asm)
-        (insert (format-asm-line item)))
-      (setq buffer-read-only t)
-      (special-mode) ; Set a suitable mode for the buffer
-      (setq-local display-line-numbers nil)
-      (goto-char (point-min))
-      (display-buffer buffer))))
+      (dolist (item asm-diff)
+        (let ((type (car item))
+              (left (cadr item))
+              (right (caddr item)))
+          (insert (format-diff-line type left right)))))))
 
 
 (defun jump-to-asm (asm line)
-  (let ((buffer (get-buffer *asm-buffer-name*)))
+  (let ((buffer (get-buffer *base-asm-buffer-name*)))
     (if buffer
         (with-current-buffer buffer
           (let ((index 0))
             (catch 'found
               (dolist (item asm)
                 (setq index (1+ index))
-                (when (equal line (asm-line-src-line item))
+                (when (equal line (asm-line-src-line (cadr item)))
                   (goto-char (point-min))
                   (forward-line index)
-                  (message "Index %d" index)
-                  (throw 'found index)))
-              (message "Number %d not found in the list." line))))
-    (message "Buffer %s does not exist." my-buffer-name))))
+                  (debug-message "Index %d" index)
+                  (throw 'found index)))))))))
 
 
 (defun c-assembly-compile-and-show ()
   "Assembles and dump target file."
   (interactive)
-  (let ((asm-buffer-name *asm-buffer-name*)
-        (asm-file (c-assembly-get-base-asm)))
+  (let ((asm-buffer-name *base-asm-buffer-name*)
+        (target-asm-file (c-assembly-get-target-asm))
+        (base-asm-file (c-assembly-get-base-asm)))
+    (c-assembly-compile)
+    (c-assembly-dump-asm)
     
-    (let ((obj-file (c-assembly-get-base-obj))
-          (asm-file (c-assembly-get-base-asm)))
-      (c-assembly-compile-file (buffer-file-name) obj-file)
-      (c-assembly-dump-asm-file obj-file asm-file))
-    (setq *loaded-asm* (load-asm asm-file))
+    (setq *loaded-asm* (diff (load-asm base-asm-file)
+                             (load-asm target-asm-file)
+                             #'asm-compare))
     (display-asm *loaded-asm*)))
 
 
