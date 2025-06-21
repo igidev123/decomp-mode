@@ -1,9 +1,9 @@
-= decomp-mode
+# decomp-mode
 A minor mode for emacs to help with decompilation projects. Inspired by [decomp.me](https://decomp.me/).
 
 This is work in progress
 
-== Usage
+# Usage
 - Open `diff.el` and `decomp-mode.el`.
 - Eval both files by calling `eval-buffer`
 
