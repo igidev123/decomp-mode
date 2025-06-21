@@ -67,7 +67,7 @@
           (push (list x y) result)
           (setq x (1- x))
           (setq y (1- y)))
-        (debug-message "%s %d k=%d prev-k=%d (%d,%d) ← (%d,%d)" result d k prev-k x y prev-x prev-y)
+        (debug-message "%s %d k=%d prev-k=%d (%d,%d) ← (%d,%d)" v d k prev-k x y prev-x prev-y)
         (setq x prev-x)
         (setq y prev-y)))
     result))
