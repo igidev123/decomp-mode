@@ -95,6 +95,12 @@
                                      :full-instruction (match-string 2 line))))))))
       result)))
 
+
+(defun format-asm-line (asm)
+  (format "%4d %4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item)))
+(defun format-asm-no-line (asm)
+  (format "%4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item)))
+
 (defun display-asm (asm)
   "Display the assembly in a buffer."
   (let ((buffer (get-buffer-create *asm-buffer-name*)))
@@ -102,7 +108,7 @@
       (setq buffer-read-only nil)
       (erase-buffer)
       (dolist (item asm)
-        (insert (format "%4d %4x:  %s\n" (asm-line-src-line item) (asm-line-address item) (asm-line-full-instruction item))))
+        (insert (format-asm-line item)))
       (setq buffer-read-only t)
       (special-mode) ; Set a suitable mode for the buffer
       (setq-local display-line-numbers nil)
