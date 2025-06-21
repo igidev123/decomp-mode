@@ -145,7 +145,7 @@
 
 (defun display-asm (asm-diff)
   "Display the assembly in a buffer."
-  (let ((buffer (get-buffer-create *target-asm-buffer-name*)))
+  (let ((buffer (get-buffer-create *base-asm-buffer-name*)))
     (with-current-buffer buffer
       (setq buffer-read-only nil)
       (erase-buffer)
@@ -155,6 +155,7 @@
               (right (caddr item)))
           (insert (format-diff-line type left right)))))))
 
+(message "%s" *base-asm-buffer-name*)
 
 (defun jump-to-asm (asm line)
   (let ((buffer (get-buffer *base-asm-buffer-name*)))
@@ -190,7 +191,7 @@
   "Jump from the current line of C code to the corresponding assembly line."
   (interactive)
   (let ((line (line-number-at-pos))
-        (asm-buffer-name *asm-buffer-name*))
+        (asm-buffer-name *base-asm-buffer-name*))
     (switch-to-buffer-other-window (get-buffer asm-buffer-name))
     (jump-to-asm *loaded-asm* line)))
 
