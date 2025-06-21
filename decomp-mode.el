@@ -167,7 +167,7 @@
                 (setq index (1+ index))
                 (when (equal line (asm-line-src-line (cadr item)))
                   (goto-char (point-min))
-                  (forward-line index)
+                  (forward-line (1- index))
                   (debug-message "Index %d" index)
                   (throw 'found index)))))))))
 
