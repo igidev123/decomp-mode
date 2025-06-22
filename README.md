@@ -3,9 +3,9 @@ A minor mode for emacs to help with decompilation projects. Inspired by [decomp.
 
 This is work in progress
 
-# Usage
-- Open `diff.el` and `decomp-mode.el`.
-- Eval both files by calling `eval-buffer`
+## Usage
+- Open `decomp-mode.el`.
+- Eval the file by calling `eval-buffer`. It will compile `diff.el` and `dll.el` into `diff.elc` and `dll.elc`.
 
 - Place a source file (e.g. `base.c`) and a target assembly file (called `target.s`) in your working directory.
 - Write a `compile.sh` script that will compile your source file when called as `./compile.sh <source.c> -o <out.o> -g`
