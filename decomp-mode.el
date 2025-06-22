@@ -2,7 +2,7 @@
 (define-minor-mode decomp-mode
   "A minor mode for compiling C code to assembly and navigating it."
   :lighter " decomp"
-  (if c-assembly-mode
+  (if decomp-mode
       (progn
         ;; Set up keybindings
         (local-set-key (kbd "C-c C-a") 'c-assembly-compile-and-show)
@@ -10,6 +10,11 @@
     ;; Cleanup if necessary
     ))
 
+(add-to-list 'load-path ".")
+(byte-compile-file "diff.el")
+(load "./diff")
+(byte-compile-file "dll.el")
+(load "./dll")
 
 (defvar *c-assembly-debug* nil)
 (defun debug-message (&rest body)
@@ -24,6 +29,12 @@
        (defun ,name ,parameters
          (or ,memo-var
              (setq ,memo-var (progn ,@body)))))))
+
+(defmacro measure-time (&rest body)
+  "Measure the time it takes to evaluate BODY."
+  `(let ((time (current-time)))
+     ,@body
+     (message "%.06f" (float-time (time-since time)))))
 
 (defclass asm-line ()
   ((src-line :initarg :src-line :accessor asm-line-src-line)
@@ -165,7 +176,8 @@
             (catch 'found
               (dolist (item asm)
                 (setq index (1+ index))
-                (when (equal line (asm-line-src-line (cadr item)))
+                (when (and (cadr item)
+                           (equal line (asm-line-src-line (cadr item))))
                   (goto-char (point-min))
                   (forward-line (1- index))
                   (debug-message "Index %d" index)
@@ -175,6 +187,7 @@
 (defun c-assembly-compile-and-show ()
   "Assembles and dump target file."
   (interactive)
+  (measure-time
   (let ((asm-buffer-name *base-asm-buffer-name*)
         (target-asm-file (c-assembly-get-target-asm))
         (base-asm-file (c-assembly-get-base-asm)))
@@ -184,7 +197,7 @@
     (setq *loaded-asm* (diff (load-asm base-asm-file)
                              (load-asm target-asm-file)
                              #'asm-compare))
-    (display-asm *loaded-asm*)))
+    (display-asm *loaded-asm*))))
 
 
 (defun c-assembly-jump-to-line ()
